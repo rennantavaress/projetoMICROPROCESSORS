@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Activity, Zap, Thermometer, AlertTriangle, CheckCircle, Power, RefreshCw } from 'lucide-react';
 import './Dashboard.css';
 
@@ -14,25 +14,130 @@ const DashboardTema2 = () => {
 
   const [isRunning, setIsRunning] = useState(true);
   const [alertas, setAlertas] = useState([]);
+  const [connStatus, setConnStatus] = useState('disconnected');
+  const wsRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
+  const closingRef = useRef(false);
+  const runningRef = useRef(isRunning);
 
-  // Simulação de recebimento de dados
+  const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
+
   useEffect(() => {
+    runningRef.current = isRunning;
+  }, [isRunning]);
+
+  const normalizePayload = (payload) => {
+    const data = payload || {};
+    const toNumber = (value, fallback) => {
+      if (value === undefined || value === null || value === '') return fallback;
+      const parsed = Number(value);
+      return Number.isNaN(parsed) ? fallback : parsed;
+    };
+
+    return {
+      correntePrimario: toNumber(
+        data.correntePrimario ?? data.corrente_primario,
+        sensorData.correntePrimario,
+      ),
+      correnteSecundario: toNumber(
+        data.correnteSecundario ?? data.corrente_secundario,
+        sensorData.correnteSecundario,
+      ),
+      temperatura: toNumber(data.temperatura, sensorData.temperatura),
+      vibracao120Hz: toNumber(
+        data.vibracao120Hz ?? data.vibracao_120hz ?? data.vibracao,
+        sensorData.vibracao120Hz,
+      ),
+      status: data.status || 'online',
+    };
+  };
+
+  const scheduleReconnect = () => {
+    if (reconnectTimerRef.current) return;
+    if (!runningRef.current) return;
+    const attempt = reconnectAttemptsRef.current + 1;
+    reconnectAttemptsRef.current = attempt;
+    const delay = Math.min(1000 * 2 ** attempt, 15000);
+
+    reconnectTimerRef.current = setTimeout(() => {
+      reconnectTimerRef.current = null;
+      connectWebSocket();
+    }, delay);
+  };
+
+  const closeSocket = () => {
+    if (!wsRef.current) return;
+    closingRef.current = true;
+    wsRef.current.close();
+    wsRef.current = null;
+  };
+
+  const connectWebSocket = () => {
     if (!isRunning) return;
 
-    const interval = setInterval(() => {
-      const newData = {
-        correntePrimario: (Math.random() * (1.5 - 0.5) + 0.5).toFixed(2),
-        correnteSecundario: (Math.random() * (10 - 8) + 8).toFixed(2),
-        temperatura: (Math.random() * (85 - 40) + 40).toFixed(1),
-        vibracao120Hz: (Math.random() * (2.5 - 0.1) + 0.1).toFixed(2),
-        status: 'online',
-      };
-      setSensorData(newData);
-      avaliarDiagnostico(newData);
-    }, 1000);
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
 
-    return () => clearInterval(interval);
-  }, [isRunning]);
+    if (wsRef.current) {
+      closeSocket();
+    }
+
+    setConnStatus('connecting');
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+    closingRef.current = false;
+
+    ws.onopen = () => {
+      reconnectAttemptsRef.current = 0;
+      setConnStatus('connected');
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        const nextData = normalizePayload(payload);
+        setSensorData(nextData);
+        avaliarDiagnostico(nextData);
+      } catch (error) {
+        // Ignore malformed payloads to keep the dashboard running.
+      }
+    };
+
+    ws.onclose = () => {
+      if (closingRef.current || !runningRef.current) {
+        closingRef.current = false;
+        return;
+      }
+      setConnStatus('disconnected');
+      scheduleReconnect();
+    };
+
+    ws.onerror = () => {
+      setConnStatus('error');
+      ws.close();
+    };
+  };
+
+  useEffect(() => {
+    if (isRunning) {
+      connectWebSocket();
+    } else if (wsRef.current) {
+      closeSocket();
+    }
+
+    return () => {
+      if (wsRef.current) {
+        closeSocket();
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
+  }, [isRunning, WS_URL]);
 
   // Lógica de Apoio à Decisão (Diagnóstico Técnico)
   const avaliarDiagnostico = (data) => {
@@ -79,6 +184,12 @@ const DashboardTema2 = () => {
             <Power className="icon-small" />
             {isRunning ? 'Parar Aquisição' : 'Iniciar Aquisição'}
           </button>
+          <div className="btn btn-reset" style={{ cursor: 'default' }}>
+            {connStatus === 'connected' && 'Socket Online'}
+            {connStatus === 'connecting' && 'Conectando...'}
+            {connStatus === 'disconnected' && 'Socket Offline'}
+            {connStatus === 'error' && 'Erro no Socket'}
+          </div>
           <button 
             onClick={handleAcknowledge}
             className="btn btn-reset"
