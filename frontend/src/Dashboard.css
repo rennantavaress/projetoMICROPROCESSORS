@@ -1,0 +1,205 @@
+/* Variáveis de Cores (Paleta Dark baseada no Tailwind) */
+:root {
+  --bg-page: #111827; /* gray-900 */
+  --bg-panel: #1f2937; /* gray-800 */
+  --border-color: #374151; /* gray-700 */
+  
+  --text-main: #f3f4f6; /* gray-100 */
+  --text-secondary: #d1d5db; /* gray-300 */
+  --text-muted: #9ca3af; /* gray-400 */
+  --text-darker: #6b7280; /* gray-500 */
+  
+  --color-blue: #60a5fa;
+  --color-yellow: #facc15;
+  --color-yellow-dark: #eab308;
+  --color-green: #4ade80;
+  --color-red: #ef4444;
+  --color-purple: #c084fc;
+}
+
+/* Layout Principal */
+.dashboard-container {
+  min-height: 100vh;
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  padding: 1.5rem; /* 24px */
+  font-family: system-ui, -apple-system, sans-serif;
+  box-sizing: border-box;
+}
+
+/* Cabeçalho */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  background-color: var(--bg-panel);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
+}
+
+.dashboard-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-blue);
+  margin: 0 0 0.25rem 0;
+}
+
+.dashboard-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+/* Botões */
+.btn {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  color: white;
+  transition: background-color 0.2s;
+}
+
+.btn-start {
+  background-color: #16a34a; /* green-600 */
+}
+.btn-start:hover { background-color: #15803d; }
+
+.btn-stop {
+  background-color: #dc2626; /* red-600 */
+}
+.btn-stop:hover { background-color: #b91c1c; }
+
+.btn-reset {
+  background-color: #ca8a04; /* yellow-600 */
+}
+.btn-reset:hover { background-color: #a16207; }
+
+/* Grid de Sensores */
+.sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 768px) {
+  .sensor-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .sensor-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+.sensor-card {
+  background-color: var(--bg-panel);
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sensor-title {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+}
+
+.sensor-desc {
+  font-size: 0.875rem;
+  color: var(--text-darker);
+  margin: 0 0 1rem 0;
+}
+
+.sensor-value {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: white;
+}
+
+.sensor-unit {
+  font-size: 1.25rem;
+  color: var(--text-muted);
+}
+
+/* Ícones */
+.icon-small { width: 1rem; height: 1rem; margin-right: 0.5rem; }
+.icon-medium { width: 1.25rem; height: 1.25rem; margin-right: 0.75rem; }
+.icon-large { width: 2.5rem; height: 2.5rem; margin-bottom: 0.5rem; }
+
+.icon-yellow { color: var(--color-yellow); }
+.icon-yellow-dark { color: var(--color-yellow-dark); }
+.icon-green { color: var(--color-green); }
+.icon-red { color: var(--color-red); }
+.icon-blue { color: var(--color-blue); }
+.icon-purple { color: var(--color-purple); }
+
+/* Módulo de Diagnóstico */
+.diagnostic-module {
+  background-color: var(--bg-panel);
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+}
+
+.diagnostic-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+}
+
+.alert-list {
+  display: flex;
+  flex-direction: column;   
+  gap: 1rem;
+}
+
+.alert {
+  padding: 1rem;
+  border-radius: 0.25rem;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: flex-start;
+}
+
+.alert-icon {
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+}
+
+.alert-normal {
+  color: var(--color-green);
+  background-color: rgba(20, 83, 45, 0.2); /* green-900/20 */
+  border-color: #166534; /* green-800 */
+}
+
+.alert-maintenance {
+  color: #fdba74; /* orange-300 */
+  background-color: rgba(124, 45, 18, 0.2); /* orange-900/20 */
+  border-color: #9a3412; /* orange-800 */
+}
+
+.alert-warning {
+  color: #fca5a5; /* red-300 */
+  background-color: rgba(127, 29, 29, 0.2); /* red-900/20 */
+  border-color: #991b1b; /* red-800 */
+}
