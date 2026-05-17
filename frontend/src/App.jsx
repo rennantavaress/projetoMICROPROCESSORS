@@ -1,12 +1,10 @@
 import { useState } from 'react'
-import DashboardTema2 from './Dashboard'
-
-import './App.css'
+import Dashboard from './Dashboard/Dashboard'
 
 export default function App() {
   return (
     <>
-      <DashboardTema2 />
+      <Dashboard />
     </>
   )
 }
