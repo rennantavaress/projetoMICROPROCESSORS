@@ -7,7 +7,7 @@ import serial
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Serial to backend bridge")
-    parser.add_argument("--port", default="COM4")
+    parser.add_argument("--port", default="COM2")
     parser.add_argument("--baud", type=int, default=9600)
     parser.add_argument("--endpoint", default="http://127.0.0.1:8080/ingest")
     parser.add_argument("--timeout", type=float, default=2.0)
@@ -19,10 +19,14 @@ def main() -> None:
             if not raw:
                 continue
 
+            print(raw)
+
             try:
                 payload = json.loads(raw)
             except json.JSONDecodeError:
                 continue
+
+            print(payload)
 
             try:
                 requests.post(args.endpoint, json=payload, timeout=args.timeout)
