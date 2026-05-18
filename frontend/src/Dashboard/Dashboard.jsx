@@ -3,6 +3,7 @@ import { Activity, Zap, Thermometer, AlertTriangle, CheckCircle, Power, RefreshC
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { ExportButton } from './ExportButton';
 
 const FFT_SIZE = 256;
 const SAMPLE_RATE = 1000;
@@ -167,6 +168,11 @@ const Dashboard = () => {
 
   const [chartData, setChartData] = useState([]);
   const [isRunning, setIsRunning] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
+  const isRunningRef = useRef(isRunning);
+  useEffect(() => {
+    isRunningRef.current = isRunning;
+  }, [isRunning]);
   const [alertas, setAlertas] = useState([]);
   const [fftData, setFftData] = useState([]);
   const [logCount, setLogCount] = useState(0);
@@ -182,47 +188,79 @@ const Dashboard = () => {
   const spikeRef = useRef(false);
 
   useEffect(() => {
-    if (!isRunning) return;
+    let ws = null;
+    let reconnectTimeout = null;
 
-    const interval = setInterval(() => {
-      const timestamp = new Date();
-      const timeMs = timestamp.getTime();
-      const shouldSpike = spikeRef.current;
-      spikeRef.current = false;
-
-      const newData = {
-        timestamp: timestamp.toISOString(),
-        timeMs,
-        correntePrimario: parseFloat((Math.random() * (1.5 - 0.5) + 0.5).toFixed(2)),
-        correnteSecundario: parseFloat((Math.random() * (10 - 8) + 8).toFixed(2)),
-        temperatura: parseFloat((Math.random() * (52 - 50) + 50).toFixed(1)),
-        vibracao120Hz: shouldSpike
-          ? 12.0
-          : parseFloat((Math.random() * (2.5 - 0.1) + 0.1).toFixed(2)),
+    const connect = () => {
+      // O backend roda na porta 8080 (http_simulator e serial_bridge apontam para porta 8080)
+      ws = new WebSocket('ws://127.0.0.1:8080/ws');
+      
+      ws.onopen = () => {
+        setIsConnected(true);
       };
 
-      const bounds = getIqrBounds(iqrRef.current);
-      const isSpike = shouldSpike || (bounds
-        ? newData.vibracao120Hz < bounds.lower || newData.vibracao120Hz > bounds.upper
-        : false);
+      ws.onclose = () => {
+        setIsConnected(false);
+        reconnectTimeout = setTimeout(connect, 3000);
+      };
 
-      newData.isSpike = isSpike;
+      ws.onerror = () => {
+        ws.close();
+      };
 
-      avaliarDiagnostico(newData, isSpike);
-      setChartData((prevData) => [...prevData, newData].slice(-200));
-      logRef.current.push(newData);
-      setLogCount(logRef.current.length);
-      iqrRef.current.push(newData.vibracao120Hz);
-      if (iqrRef.current.length > IQR_WINDOW) {
-        iqrRef.current.shift();
+      ws.onmessage = (event) => {
+        if (!isRunningRef.current) return;
+
+        try {
+          const rawData = JSON.parse(event.data);
+          const timestamp = new Date();
+          const timeMs = timestamp.getTime();
+          const shouldSpike = spikeRef.current;
+          spikeRef.current = false;
+
+          const newData = {
+            timestamp: timestamp.toISOString(),
+            timeMs,
+            correntePrimario: rawData.corrente_primario,
+            correnteSecundario: rawData.corrente_secundario,
+            temperatura: rawData.temperatura,
+            vibracao120Hz: shouldSpike ? 12.0 : rawData.vibracao,
+          };
+
+          const bounds = getIqrBounds(iqrRef.current);
+          const isSpike = shouldSpike || (bounds
+            ? newData.vibracao120Hz < bounds.lower || newData.vibracao120Hz > bounds.upper
+            : false);
+
+          newData.isSpike = isSpike;
+
+          avaliarDiagnostico(newData, isSpike);
+          setChartData((prevData) => [...prevData, newData].slice(-200));
+          logRef.current.push(newData);
+          setLogCount(logRef.current.length);
+          iqrRef.current.push(newData.vibracao120Hz);
+          if (iqrRef.current.length > IQR_WINDOW) {
+            iqrRef.current.shift();
+          }
+
+          const samples = buildVibrationSamples(newData.vibracao120Hz, isSpike);
+          setFftData(buildSpectrum(samples));
+        } catch (err) {
+          console.error("Erro ao fazer parse dos dados recebidos via WebSocket", err);
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
       }
-
-      const samples = buildVibrationSamples(newData.vibracao120Hz, isSpike);
-      setFftData(buildSpectrum(samples));
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [isRunning]);
+    };
+  }, []);
 
   const avaliarDiagnostico = (data, isSpike) => {
     const novosAlertas = [];
@@ -381,7 +419,11 @@ const Dashboard = () => {
       </div>
 
       <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 shadow-lg mb-8">
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex items-center gap-2 mr-2 bg-gray-800 px-3 py-2 rounded-md border border-gray-700">
+            <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_#10B981]' : 'bg-red-500 shadow-[0_0_8px_#EF4444] animate-pulse'}`} />
+            <span className="text-sm font-medium text-gray-200">{isConnected ? 'Conectado (WS)' : 'Desconectado'}</span>
+          </div>
           <button 
             onClick={() => setIsRunning(!isRunning)} 
             className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${isRunning ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
@@ -395,6 +437,7 @@ const Dashboard = () => {
           <button onClick={exportCsv} className="flex items-center gap-2 px-4 py-2 rounded-md font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors">
             <FileText className="w-4 h-4" /> Exportar CSV
           </button>
+          <ExportButton logs={alertas} periodo="Tempo Real (Ao Vivo)" />
           <button onClick={handleSpikeTest} className="flex items-center gap-2 px-4 py-2 rounded-md font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors">
             <Activity className="w-4 h-4" /> Gerar Spike
           </button>
@@ -466,7 +509,7 @@ const Dashboard = () => {
               </button>
             </div>
           </div>
-          <div className="h-[250px] w-full">
+          <div id="chart-delta-t" className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={temperaturaData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
@@ -492,7 +535,7 @@ const Dashboard = () => {
               </button>
             </div>
           </div>
-          <div className="h-[250px] w-full">
+          <div id="chart-inrush" className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={correntesData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
@@ -544,7 +587,7 @@ const Dashboard = () => {
             <Knob label="Ticks" value={chartControls.fft.yTicks} min={3} max={10} step={1} onChange={(value) => updateControl('fft', 'yTicks', value)} />
           </div>
         </div>
-        <div className="h-[250px] w-full">
+        <div id="chart-fft" className="h-[250px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={fftData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
