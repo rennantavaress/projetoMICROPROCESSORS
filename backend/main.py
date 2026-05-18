@@ -1,5 +1,6 @@
 from fastapi import Body, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from typing import Dict, Set
 
 app = FastAPI(title="Proteus Bridge API")
@@ -11,6 +12,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class SensorData(BaseModel):
+    temperatura: float
+    corrente_primario: float
+    corrente_secundario: float
+    vibracao: float
+    status: str
 
 connections: Set[WebSocket] = set()
 
@@ -38,8 +46,9 @@ async def health() -> Dict:
 
 
 @app.post("/ingest")
-async def ingest(payload: Dict = Body(...)) -> Dict:
-    clients = await broadcast(payload)
+async def ingest(payload: SensorData) -> Dict:
+    data_dict = payload.dict()
+    clients = await broadcast(data_dict)
     return {"ok": True, "clients": clients}
 
 
