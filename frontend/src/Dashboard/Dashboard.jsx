@@ -3,6 +3,7 @@ import { Activity, Thermometer, AlertTriangle, CheckCircle, Power, RefreshCw, Fi
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { ExportButton } from './ExportButton';
 
 const Knob = ({ label, value, min, max, step, onChange }) => {
   const percent = (value - min) / (max - min);
@@ -80,6 +81,11 @@ const Dashboard = () => {
 
   const [chartData, setChartData] = useState([]);
   const [isRunning, setIsRunning] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
+  const isRunningRef = useRef(isRunning);
+  useEffect(() => {
+    isRunningRef.current = isRunning;
+  }, [isRunning]);
   const [alertas, setAlertas] = useState([]);
   const [logCount, setLogCount] = useState(0);
   const [toastEnabled, setToastEnabled] = useState(true);
@@ -357,7 +363,11 @@ const Dashboard = () => {
       </div>
 
       <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 shadow-lg mb-8">
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex items-center gap-2 mr-2 bg-gray-800 px-3 py-2 rounded-md border border-gray-700">
+            <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_#10B981]' : 'bg-red-500 shadow-[0_0_8px_#EF4444] animate-pulse'}`} />
+            <span className="text-sm font-medium text-gray-200">{isConnected ? 'Conectado (WS)' : 'Desconectado'}</span>
+          </div>
           <button 
             onClick={() => setIsRunning(!isRunning)} 
             className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${isRunning ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
@@ -439,7 +449,7 @@ const Dashboard = () => {
               </button>
             </div>
           </div>
-          <div className="h-[250px] w-full">
+          <div id="chart-delta-t" className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={temperaturaData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
@@ -465,7 +475,7 @@ const Dashboard = () => {
               </button>
             </div>
           </div>
-          <div className="h-[250px] w-full">
+          <div id="chart-inrush" className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={orientacaoData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
